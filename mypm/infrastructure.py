@@ -1,5 +1,7 @@
 """Adaptadores de persistência, processos e comunicação local."""
 
+from __future__ import annotations
+
 import json
 import os
 import signal
@@ -8,9 +10,8 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
-from .application import Request, Response
 from .common.exceptions import (
     ApplicationAlreadyExistsError,
     ApplicationNotFoundError,
@@ -21,6 +22,9 @@ from .domain import (
     ApplicationState,
     ManagedApplication,
 )
+
+if TYPE_CHECKING:
+    from .application import Request, Response
 
 
 class InMemoryApplicationRepository:
