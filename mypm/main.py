@@ -7,12 +7,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Annotated, cast
-
-import typer
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
+from typing import cast
 
 from .application import ProcessManager, Request, Response
 from .common.exceptions import (
@@ -22,6 +17,7 @@ from .common.exceptions import (
     InvalidDaemonRequestError,
     MyPMError,
 )
+from .console import ConsolePresenter
 from .domain import ApplicationName
 from .infrastructure import (
     InMemoryApplicationRepository,
@@ -32,13 +28,6 @@ from .infrastructure import (
 BASE: Path = Path.home() / ".mypm"
 SOCK: Path = BASE / "daemon.sock"
 LOGS: Path = BASE / "logs"
-cli = typer.Typer(
-    name="mypm",
-    help="Gerenciador de processos Python.",
-    no_args_is_help=True,
-    rich_markup_mode="rich",
-)
-console = Console()
 
 
 class DaemonService:
@@ -134,34 +123,33 @@ class CommandLineApplication:
         self,
         client: UnixSocketClient | None = None,
         daemon: DaemonService | None = None,
-        output: Console | None = None,
+        presenter: ConsolePresenter | None = None,
     ) -> None:
         """Cria a interface com dependências substituíveis em testes."""
         self._client = client or UnixSocketClient(SOCK)
         self._daemon = daemon or DaemonService()
-        self._console = output or console
+        self._presenter = presenter or ConsolePresenter()
 
     def execute(self, request: Request) -> None:
         """Envia um comando ao daemon e apresenta seu resultado."""
         command = request["cmd"]
         if command == "shutdown" and not self._is_daemon_alive():
-            self._show_message("Daemon já está parado", "yellow")
+            self._presenter.show_warning("Daemon já está parado")
             return
 
         self._ensure_daemon()
         response = self._client.request(request)
         if not response.get("ok", False):
-            self._show_message(
-                response.get("error", "Erro desconhecido"),
-                "red",
+            self._presenter.show_error(
+                response.get("error", "Erro desconhecido")
             )
-            raise typer.Exit(code=1)
+            return
         if command == "list":
-            self._print_applications(response)
+            self._presenter.show_applications(response)
         else:
             pid = response.get("pid")
             detail = f"PID [bold]{pid}[/]" if pid is not None else None
-            self._show_message(detail or "Comando concluído", "green")
+            self._presenter.show_success(detail or "Comando concluído")
 
     def _ensure_daemon(self) -> None:
         if self._is_daemon_alive():
@@ -199,123 +187,22 @@ class CommandLineApplication:
         try:
             name = ApplicationName(raw_name)
         except InvalidApplicationNameError as error:
-            self._show_message(str(error), "red")
-            raise typer.Exit(code=2) from error
+            self._presenter.show_error(str(error))
+            return
         path = LOGS / f"{name.value}.log"
         if not path.exists():
-            self._show_message("Log não encontrado", "red")
-            raise typer.Exit(code=2)
+            self._presenter.show_error("Log não encontrado")
+            return
         subprocess.run(
             ["tail", "-n", "50", "-f", str(path)],
             check=False,
         )
 
-    def _print_applications(self, response: Response) -> None:
-        table = Table(show_header=True, header_style="bold cyan")
-        table.add_column("Nome", style="bold")
-        table.add_column("Status")
-        table.add_column("PID", justify="right")
-        table.add_column("Reinícios", justify="right")
-        for application in response.get("apps", []):
-            pid = str(application["pid"] or "-")
-            state = application["state"]
-            color = "green" if state == "online" else "yellow"
-            table.add_row(
-                application["name"],
-                f"[{color}]{state}[/]",
-                pid,
-                str(application["restarts"]),
-            )
-        self._console.print(
-            Panel(
-                table,
-                title="[bold]Processos gerenciados[/]",
-                border_style="cyan",
-            )
-        )
-
-    def _show_message(self, message: str, color: str) -> None:
-        self._console.print(
-            Panel(message, border_style=color, title="[bold]MyPM[/]")
-        )
-
-
-def _application() -> CommandLineApplication:
-    return CommandLineApplication()
-
-
-@cli.command()
-def start(
-    script: Annotated[
-        Path,
-        typer.Argument(help="Script Python a executar."),
-    ],
-    name: Annotated[
-        str | None,
-        typer.Option("--name", "-n", help="Nome do processo."),
-    ] = None,
-) -> None:
-    """Inicia e monitora um script Python."""
-    resolved_script = script.resolve()
-    _application().execute({
-        "cmd": "start",
-        "script": str(resolved_script),
-        "name": name or script.stem,
-    })
-
-
-@cli.command()
-def stop(
-    name: Annotated[str, typer.Argument(help="Nome do processo.")],
-) -> None:
-    """Interrompe um processo gerenciado."""
-    _application().execute({"cmd": "stop", "name": name})
-
-
-@cli.command()
-def restart(
-    name: Annotated[str, typer.Argument(help="Nome do processo.")],
-) -> None:
-    """Reinicia um processo gerenciado."""
-    _application().execute({"cmd": "restart", "name": name})
-
-
-@cli.command()
-def delete(
-    name: Annotated[str, typer.Argument(help="Nome do processo.")],
-) -> None:
-    """Remove um processo do gerenciamento."""
-    _application().execute({"cmd": "delete", "name": name})
-
-
-@cli.command("list")
-def list_processes() -> None:
-    """Exibe os processos gerenciados."""
-    _application().execute({"cmd": "list"})
-
-
-@cli.command()
-def logs(
-    name: Annotated[str, typer.Argument(help="Nome do processo.")],
-) -> None:
-    """Acompanha os logs de um processo."""
-    _application().show_logs(name)
-
-
-@cli.command()
-def shutdown() -> None:
-    """Encerra o daemon e todos os processos."""
-    _application().execute({"cmd": "shutdown"})
-
-
-@cli.command("_daemon", hidden=True)
-def run_daemon() -> None:
-    """Executa o serviço interno do daemon."""
-    DaemonService().run()
-
 
 def main() -> None:
     """Inicia a interface de linha de comando."""
+    from .cli import cli
+
     cli()
 
 
