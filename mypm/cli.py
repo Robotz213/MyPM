@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from typer import Argument, Option, Typer
 
 from .main import CommandLineApplication, DaemonService
 
-if TYPE_CHECKING:
-    from pathlib import Path
+__lazy_modules__ = ["pathlib"]
+
+from pathlib import Path
 
 cli = Typer(
     name="mypm",
