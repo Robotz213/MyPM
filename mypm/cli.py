@@ -1,18 +1,24 @@
 """Comandos da interface de linha de comando do MyPM."""
 
-from pathlib import Path
-from typing import Annotated
+from __future__ import annotations
 
-import typer
+from typing import TYPE_CHECKING, Annotated
+
+from typer import Argument, Option, Typer
 
 from .main import CommandLineApplication, DaemonService
 
-cli = typer.Typer(
+if TYPE_CHECKING:
+    from pathlib import Path
+
+cli = Typer(
     name="mypm",
     help="Gerenciador de processos Python.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
+startup_cli = Typer(help="Gerencia a inicialização após o login.")
+cli.add_typer(startup_cli, name="startup")
 
 
 def _application() -> CommandLineApplication:
@@ -23,11 +29,11 @@ def _application() -> CommandLineApplication:
 def start(
     script: Annotated[
         Path,
-        typer.Argument(help="Script Python a executar."),
+        Argument(help="Script Python a executar."),
     ],
     name: Annotated[
         str | None,
-        typer.Option("--name", "-n", help="Nome do processo."),
+        Option("--name", "-n", help="Nome do processo."),
     ] = None,
 ) -> None:
     """Inicia e monitora um script Python."""
@@ -41,7 +47,7 @@ def start(
 
 @cli.command()
 def stop(
-    name: Annotated[str, typer.Argument(help="Nome do processo.")],
+    name: Annotated[str, Argument(help="Nome do processo.")],
 ) -> None:
     """Interrompe um processo gerenciado."""
     _application().execute({"cmd": "stop", "name": name})
@@ -49,7 +55,7 @@ def stop(
 
 @cli.command()
 def restart(
-    name: Annotated[str, typer.Argument(help="Nome do processo.")],
+    name: Annotated[str, Argument(help="Nome do processo.")],
 ) -> None:
     """Reinicia um processo gerenciado."""
     _application().execute({"cmd": "restart", "name": name})
@@ -57,7 +63,7 @@ def restart(
 
 @cli.command()
 def delete(
-    name: Annotated[str, typer.Argument(help="Nome do processo.")],
+    name: Annotated[str, Argument(help="Nome do processo.")],
 ) -> None:
     """Remove um processo do gerenciamento."""
     _application().execute({"cmd": "delete", "name": name})
@@ -71,7 +77,7 @@ def list_processes() -> None:
 
 @cli.command()
 def logs(
-    name: Annotated[str, typer.Argument(help="Nome do processo.")],
+    name: Annotated[str, Argument(help="Nome do processo.")],
 ) -> None:
     """Acompanha os logs de um processo."""
     _application().show_logs(name)
@@ -81,6 +87,18 @@ def logs(
 def shutdown() -> None:
     """Encerra o daemon e todos os processos."""
     _application().execute({"cmd": "shutdown"})
+
+
+@startup_cli.command("install")
+def install_startup() -> None:
+    """Ativa o MyPM automaticamente após o login."""
+    _application().install_startup()
+
+
+@startup_cli.command("remove")
+def remove_startup() -> None:
+    """Remove a inicialização automática do MyPM."""
+    _application().remove_startup()
 
 
 @cli.command("_daemon", hidden=True)

@@ -53,6 +53,71 @@ class InMemoryApplicationRepository:
         """Exclui uma aplicação do repositório."""
         del self._applications[name.value]
 
+    def save(self) -> None:
+        """Não realiza persistência para o repositório em memória."""
+
+
+class JsonApplicationRepository(InMemoryApplicationRepository):
+    """Persiste aplicações em um arquivo JSON local."""
+
+    def __init__(self, database_path: Path) -> None:
+        """Carrega as aplicações existentes no arquivo informado."""
+        super().__init__()
+        self._database_path = database_path
+        self._load()
+
+    def add(self, application: ManagedApplication) -> None:
+        """Adiciona e persiste uma aplicação."""
+        super().add(application)
+        self.save()
+
+    def remove(self, name: ApplicationName) -> None:
+        """Remove e persiste a exclusão de uma aplicação."""
+        super().remove(name)
+        self.save()
+
+    def save(self) -> None:
+        """Grava o estado atual de forma atômica."""
+        self._database_path.parent.mkdir(
+            mode=0o700, parents=True, exist_ok=True
+        )
+        data = [
+            {
+                "name": application.name,
+                "script": str(application.script),
+                "state": application.state.value,
+                "restarts": application.restarts,
+            }
+            for application in self.list()
+        ]
+        temporary_path = self._database_path.with_suffix(".tmp")
+        temporary_path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        temporary_path.replace(self._database_path)
+
+    def _load(self) -> None:
+        if not self._database_path.exists():
+            return
+        records = json.loads(
+            self._database_path.read_text(encoding="utf-8")
+        )
+        if not isinstance(records, list):
+            message = "Banco de aplicações inválido"
+            raise InvalidDaemonResponseError(message)
+        for record in records:
+            if not isinstance(record, dict):
+                message = "Registro de aplicação inválido"
+                raise InvalidDaemonResponseError(message)
+            application = ManagedApplication(
+                name=str(record["name"]),
+                script=Path(str(record["script"])),
+                state=ApplicationState(str(record["state"])),
+                restarts=int(str(record.get("restarts", 0))),
+            )
+            self._applications[application.name] = application
+
 
 class SubprocessRuntime:
     """Controla aplicações usando subprocessos do sistema."""

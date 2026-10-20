@@ -78,6 +78,14 @@ class ProcessManager:
     def reconcile(self) -> None:
         """Atualiza processos encerrados e reinícios pendentes."""
         self._runtime.reconcile(self._repository.list())
+        self._repository.save()
+
+    def restore(self) -> None:
+        """Restaura processos que estavam ativos antes do daemon parar."""
+        for application in self._repository.list():
+            if application.state.value in {"online", "waiting"}:
+                self._runtime.launch(application)
+        self._repository.save()
 
     def handle(self, request: Request) -> Response:
         """Executa o caso de uso indicado na requisição."""
@@ -92,6 +100,7 @@ class ProcessManager:
         """Encerra todos os processos antes de desligar o daemon."""
         for application in self._repository.list():
             self._runtime.stop(application)
+        self._repository.save()
 
     @staticmethod
     def _ping(_: Request) -> Response:
@@ -143,12 +152,14 @@ class ProcessManager:
     def _stop(self, request: Request) -> Response:
         _, application = self._find_application(request)
         self._runtime.stop(application)
+        self._repository.save()
         return {"ok": True}
 
     def _restart(self, request: Request) -> Response:
         _, application = self._find_application(request)
         self._runtime.stop(application)
         self._runtime.launch(application)
+        self._repository.save()
         return {"ok": True}
 
     def _delete(self, request: Request) -> Response:

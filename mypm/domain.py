@@ -1,11 +1,15 @@
 """Objetos e contratos que representam o domínio do MyPM."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import Path
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from .common.exceptions import InvalidApplicationNameError
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class ApplicationState(StrEnum):
@@ -60,6 +64,10 @@ class ApplicationRepository(Protocol):
 
     def remove(self, name: ApplicationName) -> None:
         """Remove uma aplicação do repositório."""
+        ...
+
+    def save(self) -> None:
+        """Persista o estado atual das aplicações."""
         ...
 
 

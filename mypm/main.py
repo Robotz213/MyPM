@@ -20,7 +20,7 @@ from .common.exceptions import (
 from .console import ConsolePresenter
 from .domain import ApplicationName
 from .infrastructure import (
-    InMemoryApplicationRepository,
+    JsonApplicationRepository,
     SubprocessRuntime,
     UnixSocketClient,
 )
@@ -28,6 +28,8 @@ from .infrastructure import (
 BASE: Path = Path.home() / ".mypm"
 SOCK: Path = BASE / "daemon.sock"
 LOGS: Path = BASE / "logs"
+DATABASE: Path = BASE / "applications.json"
+AUTOSTART: Path = Path.home() / ".config/autostart/mypm.desktop"
 
 
 class DaemonService:
@@ -53,9 +55,10 @@ class DaemonService:
                 raise DaemonAlreadyRunningError(message)
             self._socket_path.unlink()
 
-        repository = InMemoryApplicationRepository()
+        repository = JsonApplicationRepository(DATABASE)
         runtime = SubprocessRuntime(self._logs_directory)
         manager = ProcessManager(repository, runtime)
+        manager.restore()
         server = self._create_server()
         try:
             while not manager.stopping:
@@ -196,6 +199,31 @@ class CommandLineApplication:
         subprocess.run(
             ["tail", "-n", "50", "-f", str(path)],
             check=False,
+        )
+
+    def install_startup(self) -> None:
+        """Instala a inicialização automática na sessão do usuário."""
+        AUTOSTART.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        command = f"{sys.executable} -m mypm.main list"
+        content = (
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=MyPM\n"
+            "Comment=Inicia o gerenciador de processos MyPM\n"
+            f"Exec={command}\n"
+            "Terminal=false\n"
+            "X-GNOME-Autostart-enabled=true\n"
+        )
+        AUTOSTART.write_text(content, encoding="utf-8")
+        self._presenter.show_success(
+            f"Inicialização automática instalada em [bold]{AUTOSTART}[/]"
+        )
+
+    def remove_startup(self) -> None:
+        """Remove a inicialização automática da sessão do usuário."""
+        AUTOSTART.unlink(missing_ok=True)
+        self._presenter.show_success(
+            "Inicialização automática removida"
         )
 
 
