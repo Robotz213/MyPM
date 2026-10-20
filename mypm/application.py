@@ -28,6 +28,9 @@ class Request(TypedDict):
     cmd: str
     name: NotRequired[str]
     script: NotRequired[str]
+    arguments: NotRequired[list[str]]
+    executable: NotRequired[str]
+    working_directory: NotRequired[str]
 
 
 class ApplicationView(TypedDict):
@@ -132,6 +135,15 @@ class ProcessManager:
             message = "Nome já existe"
             raise ApplicationAlreadyExistsError(message)
         application = ManagedApplication(name.value, script)
+        application.arguments = tuple(request.get("arguments", []))
+        executable = request.get("executable")
+        if executable:
+            application.executable = Path(executable).resolve()
+        working_directory = request.get("working_directory")
+        if working_directory:
+            application.working_directory = Path(
+                working_directory
+            ).resolve()
         self._runtime.launch(application)
         self._repository.add(application)
         if application.pid is None:

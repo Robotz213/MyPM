@@ -89,6 +89,17 @@ class JsonApplicationRepository(InMemoryApplicationRepository):
             {
                 "name": application.name,
                 "script": str(application.script),
+                "arguments": list(application.arguments),
+                "executable": (
+                    str(application.executable)
+                    if application.executable is not None
+                    else None
+                ),
+                "working_directory": (
+                    str(application.working_directory)
+                    if application.working_directory is not None
+                    else None
+                ),
                 "state": application.state.value,
                 "restarts": application.restarts,
             }
@@ -117,6 +128,20 @@ class JsonApplicationRepository(InMemoryApplicationRepository):
             application = ManagedApplication(
                 name=str(record["name"]),
                 script=Path(str(record["script"])),
+                arguments=tuple(
+                    str(argument)
+                    for argument in record.get("arguments", [])
+                ),
+                executable=(
+                    Path(str(record["executable"]))
+                    if record.get("executable") is not None
+                    else None
+                ),
+                working_directory=(
+                    Path(str(record["working_directory"]))
+                    if record.get("working_directory") is not None
+                    else None
+                ),
                 state=ApplicationState(str(record["state"])),
                 restarts=int(str(record.get("restarts", 0))),
             )
@@ -135,10 +160,20 @@ class SubprocessRuntime:
     def launch(self, application: ManagedApplication) -> None:
         """Inicia uma aplicação e registra seu PID."""
         log_path = self._logs_directory / f"{application.name}.log"
+        executable = application.executable or Path(sys.executable)
+        command = [
+            str(executable),
+            "-u",
+            str(application.script),
+            *application.arguments,
+        ]
         with log_path.open("ab", buffering=0) as output:
             process = subprocess.Popen(
-                [sys.executable, "-u", str(application.script)],
-                cwd=application.script.parent,
+                command,
+                cwd=(
+                    application.working_directory
+                    or application.script.parent
+                ),
                 stdin=subprocess.DEVNULL,
                 stdout=output,
                 stderr=subprocess.STDOUT,

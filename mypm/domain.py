@@ -26,6 +26,9 @@ class ManagedApplication:
 
     name: str
     script: Path
+    arguments: tuple[str, ...] = ()
+    executable: Path | None = None
+    working_directory: Path | None = None
     state: ApplicationState = ApplicationState.STOPPED
     pid: int | None = None
     restarts: int = 0

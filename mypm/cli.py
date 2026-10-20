@@ -36,6 +36,29 @@ def start(
         str | None,
         Option("--name", "-n", help="Nome do processo."),
     ] = None,
+    executable: Annotated[
+        Path | None,
+        Option(
+            "--executable",
+            "-e",
+            help="Interpretador ou executável usado para iniciar o script.",
+        ),
+    ] = None,
+    working_directory: Annotated[
+        Path | None,
+        Option(
+            "--cwd",
+            help="Diretório de trabalho do processo.",
+        ),
+    ] = None,
+    arguments: Annotated[
+        list[str] | None,
+        Option(
+            "--argument",
+            "-a",
+            help="Argumento repassado ao script; pode ser repetido.",
+        ),
+    ] = None,
 ) -> None:
     """Inicia e monitora um script Python."""
     resolved_script = script.resolve()
@@ -43,6 +66,13 @@ def start(
         "cmd": "start",
         "script": str(resolved_script),
         "name": name or script.stem,
+        "arguments": arguments or [],
+        "executable": str(executable.resolve()) if executable else "",
+        "working_directory": (
+            str(working_directory.resolve())
+            if working_directory
+            else ""
+        ),
     })
 
 
