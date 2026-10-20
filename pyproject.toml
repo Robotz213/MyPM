@@ -1,0 +1,107 @@
+[project]
+name = "mypm"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [{ name = "Robotz213", email = "nicholasazs213@gmail.com" }]
+requires-python = ">=3.14"
+dependencies = [
+    "rich>=15.0.0",
+    "typer>=0.27.3",
+]
+
+[project.scripts]
+mypm = "mypm:main"
+
+[build-system]
+requires = ["setuptools>=82.0.1", "wheel"]
+build-crawjud = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "." }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mypm*"]
+
+
+[tool.pyright]
+typeCheckingMode = "standard"
+include = ["mypm", "typings"]
+exclude = [
+    "**/__pycache__",
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "build",
+    "dist",
+    "erros_ruff",
+    "**/node_modules",
+    "**/.*",
+    ".venv-normal",
+]
+venvPath = "."
+venv = ".venv"
+extraPaths = ["typings"]
+
+
+[tool.ruff]
+target-version = "py315"
+preview = true
+extend-include = ["*.ipynb"]
+line-length = 72
+indent-width = 4
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    ".github/instructions",
+    "__pycache__",
+    "build",
+    "dist",
+    "erros_ruff",
+    "typings",
+    "subgenerator.py",
+
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "ARG",
+    "CPY",
+    "COM",
+    "D203",
+    "D213",
+    "E",
+    "EM",
+    "FBT",
+    "PLC",
+    "PLR",
+    "PT",
+    "PYI",
+    "RUF",
+    "S",
+    "DOC",
+    "TRY",
+    "UP",
+]
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"**/{tests,docs,tools}/*" = ["E402", "S", "D100", "D104", "ANN", "D417", "N818"]
+"scripts/**/*" = ["S", "BLE", "T201"]
+"./typings/**/*.pyi" = ["UP", "E", "ANN", "TD", "N", "FIX", "A", "PYI047"]
+"./subgenerator.py" = ["ALL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+docstring-code-line-length = 72
